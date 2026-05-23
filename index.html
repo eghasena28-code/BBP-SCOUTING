@@ -171,6 +171,30 @@ button{
     border: 1px solid #111827;
 }
 
+/* SQUAD FRAME TABLE */
+.squad-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 13px;
+}
+.squad-table th, .squad-table td {
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 8px;
+    text-align: left;
+}
+.squad-table th {
+    background: #1e293b;
+    color: #facc15;
+}
+.squad-select {
+    width: 100%;
+    padding: 4px;
+    background: #fff;
+    color: #000;
+    font-size: 12px;
+}
+
 /* MODAL FORM EDIT */
 .modal{
     position:fixed;
@@ -283,7 +307,7 @@ button{
 <div class="header">
 <img src="bbp.png" alt="BBP Logo" onerror="this.style.display='none'">
 <h2 style="margin:0;">BBP FC - SCOUTING MANAGEMENT</h2>
-<span>v5.1</span>
+<span>v5.2</span>
 </div>
 
 <div class="container">
@@ -292,7 +316,7 @@ button{
     <h3>📂 Management Project Seleksi</h3>
     <div style="display: flex; flex-direction: column; gap: 5px;">
         <input type="text" id="project_name" placeholder="Masukkan Nama Project Baru (Misal: SELEKSI U-15)">
-        <button onclick="buatProjectBaru()">🚀 BUAT PROJECT SELEKSI BARU</button>
+        <button onclick="buatProjectBarunew()">🚀 BUAT PROJECT SELEKSI BARU</button>
     </div>
     
     <h4 style="margin-top: 20px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">Daftar Project Seleksi Aktif:</h4>
@@ -302,7 +326,7 @@ button{
 </div>
 
 <div id="projectWorkspace" style="display: none;">
-    <button onclick="kembaliKeDaftarProject()" style="background:#475569; color:white; font-size:12px; margin-bottom:10px;">⬅️ Kembali ke Daftar Project</button>
+    <button onclick="kembaliKeDaftarProjectNew()" style="background:#475569; color:white; font-size:12px; margin-bottom:10px;">⬅️ Kembali ke Daftar Project</button>
 
     <div class="card">
         <div style="display:flex; justify-content:between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -318,6 +342,29 @@ button{
                 <h4>Total Pemain</h4>
                 <p id="totalPemain">0</p>
             </div>
+        </div>
+    </div>
+
+    <div class="card" style="background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9)); border: 1px solid #facc15;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:#facc15; margin:0;">📋 Susun Kerangka Tim (Shadow Squad)</h3>
+            <button onclick="bukaPanelKerangkaTim()" style="background:#2563eb; color:white; font-size:11px;">🔄 Refresh & Susun Pemain</button>
+        </div>
+        <p style="font-size:11px; opacity:0.8; margin-top:5px;">Pilih bakat terbaik yang sudah terjaring di atas ke dalam susunan tingkatan kerangka tim utama BBP FC.</p>
+        
+        <div style="overflow-x:auto;">
+            <table class="squad-table">
+                <thead>
+                    <tr>
+                        <th>Posisi Formasi</th>
+                        <th>🥇 PILIHAN UTAMA (Tier 1)</th>
+                        <th>🥈 PELAPIS KEDUA (Tier 2)</th>
+                        <th>🥉 PELAPIS KETIGA (Tier 3)</th>
+                    </tr>
+                </thead>
+                <tbody id="squadFrameBody">
+                    </tbody>
+            </table>
         </div>
     </div>
 
@@ -375,10 +422,15 @@ let projectsDatabase = {};
 let activeProjectId = null;
 let selectedPlayerElement = null;
 
+const namaPosisiMap = {
+    "1": "Posisi 1 (GK)", "2": "Posisi 2 (RB)", "3": "Posisi 3 (RCB)", "4": "Posisi 4 (LCB)", "5": "Posisi 5 (LB)",
+    "6": "Posisi 6 (RCM)", "8": "Posisi 8 (LCM)", "10": "Posisi 10 (AMF)", "7": "Posisi 7 (RW)", "11": "Posisi 11 (LW)", "9": "Posisi 9 (CF)"
+};
+
 document.getElementById('tanggal').valueAsDate = new Date();
 
 /* 1. SEKTOR MULTI-PROJECT MANAGEMENT */
-function buatProjectBaru() {
+function buatProjectBarunew() {
     let pName = document.getElementById("project_name").value;
     if(!pName) { alert("Masukkan Nama Project Seleksi Terlebih Dahulu!"); return; }
     
@@ -393,6 +445,10 @@ function buatProjectBaru() {
         masterPositions: {
             "1": [], "2": [], "3": [], "4": [], "5": [],
             "6": [], "8": [], "10": [], "7": [], "11": [], "9": []
+        },
+        shadowSquad: {
+            "1": {t1:"", t2:"", t3:""}, "2": {t1:"", t2:"", t3:""}, "3": {t1:"", t2:"", t3:""}, "4": {t1:"", t2:"", t3:""}, "5": {t1:"", t2:"", t3:""},
+            "6": {t1:"", t2:"", t3:""}, "8": {t1:"", t2:"", t3:""}, "10": {t1:"", t2:"", t3:""}, "7": {t1:"", t2:"", t3:""}, "11": {t1:"", t2:"", t3:""}, "9": {t1:"", t2:"", t3:""}
         },
         htmlContainerBackup: "" 
     };
@@ -430,17 +486,17 @@ function bukaWorkspaceProject(pId) {
     let p = projectsDatabase[pId];
     
     document.getElementById("displayProjectTitle").innerHTML = `📂 Project: <b>${p.name.toUpperCase()}</b>`;
-    
     document.getElementById("totalMatch").innerText = p.totalMatch;
     document.getElementById("totalPemain").innerText = p.totalPemain;
-    
     document.getElementById("matchContainer").innerHTML = p.htmlContainerBackup;
     
     document.getElementById("projectManagementCard").style.display = "none";
     document.getElementById("projectWorkspace").style.display = "block";
+    
+    bukaPanelKerangkaTim(); // Membuka susunan tabel kerangka tim otomatis
 }
 
-function kembaliKeDaftarProject() {
+function kembaliKeDaftarProjectNew() {
     if(activeProjectId && projectsDatabase[activeProjectId]) {
         projectsDatabase[activeProjectId].htmlContainerBackup = document.getElementById("matchContainer").innerHTML;
     }
@@ -467,7 +523,7 @@ function updateWorkspaceDashboard() {
 }
 
 
-/* 2. SEKTOR WORKSPACE INPUT MATCH SELEKSI (DINAMIS SESUAI PROJECT AKTIF) */
+/* 2. SEKTOR WORKSPACE INPUT MATCH SELEKSI */
 function buatMatch() {
     let p = projectsDatabase[activeProjectId];
     p.matchCounter++;
@@ -597,6 +653,7 @@ function addPlayer(id, t){
     p.totalPemain++;
     updateWorkspaceDashboard();
     updateCount(id);
+    bukaPanelKerangkaTim(); // Sinkronisasi dropdown kerangka
     
     document.getElementById(`n${t}_${id}`).value = "";
     document.getElementById(`pos${t}_${id}`).value = "";
@@ -614,6 +671,7 @@ function hapusPlayer(e, el, posisi, subId, id){
     p.totalPemain--;
     updateWorkspaceDashboard();
     updateCount(id);
+    bukaPanelKerangkaTim();
 }
 
 function updateCount(id){
@@ -671,9 +729,92 @@ function simpanData(){
     }
 
     modal.style.display = "none";
+    bukaPanelKerangkaTim(); // Update nama di tabel kerangka otomatis
 }
 
-/* 4. TACTICAL MASTER MAP PADA PROJECT AKTIF */
+/* 4. SEKTOR PENYUSUNAN KERANGKA TIM (SHADOW SQUAD) */
+function bukaPanelKerangkaTim() {
+    if(!activeProjectId) return;
+    let p = projectsDatabase[activeProjectId];
+    let tbody = document.getElementById("squadFrameBody");
+    tbody.innerHTML = "";
+
+    // Urutan posisi dari belakang ke depan (GK -> Belakang -> Tengah -> Depan)
+    const urutanPosisi = ["1", "5", "4", "3", "2", "8", "6", "10", "11", "9", "7"];
+
+    urutanPosisi.forEach(pos => {
+        let listPemain = p.masterPositions[pos] || [];
+        let saved = p.shadowSquad[pos] || {t1:"", t2:"", t3:""};
+
+        // Bangun opsi dropdown dari pemain yang terdaftar khusus di posisi ini
+        let optionsHtml = `<option value="">-- Pilih Pemain --</option>`;
+        listPemain.forEach(pl => {
+            let labelTampil = `#${pl.no} ${pl.nama} (${pl.asal})`;
+            optionsHtml += `<option value="${pl.subId}">${labelTampil}</option>`;
+        });
+
+        let row = document.createElement("tr");
+        row.innerHTML = `
+            <td style="font-weight:bold; color:#facc15; background:rgba(255,255,255,0.03);">${namaPosisiMap[pos]}</td>
+            <td>
+                <select class="squad-select" onchange="simpanPilihanKerangka('${pos}', 't1', this)">
+                    ${optionsHtml}
+                </select>
+                <div id="preview_${pos}_t1" style="font-size:11px; margin-top:4px; font-weight:bold; color:#16a34a;"></div>
+            </td>
+            <td>
+                <select class="squad-select" onchange="simpanPilihanKerangka('${pos}', 't2', this)">
+                    ${optionsHtml}
+                </select>
+                <div id="preview_${pos}_t2" style="font-size:11px; margin-top:4px; font-weight:bold; color:#2563eb;"></div>
+            </td>
+            <td>
+                <select class="squad-select" onchange="simpanPilihanKerangka('${pos}', 't3', this)">
+                    ${optionsHtml}
+                </select>
+                <div id="preview_${pos}_t3" style="font-size:11px; margin-top:4px; font-weight:bold; color:#e5e5e5;"></div>
+            </td>
+        `;
+        tbody.appendChild(row);
+
+        // Kembalikan nilai yang sebelumnya tersimpan (jika ada)
+        let selects = row.querySelectorAll("select");
+        selects[0].value = saved.t1;
+        selects[1].value = saved.t2;
+        selects[2].value = saved.t3;
+
+        // Jalankan trigger preview teks di bawah dropdown
+        updateTeksPreviewKerangka(pos, 't1', saved.t1);
+        updateTeksPreviewKerangka(pos, 't2', saved.t2);
+        updateTeksPreviewKerangka(pos, 't3', saved.t3);
+    });
+}
+
+function simpanPilihanKerangka(posisi, tier, selectEl) {
+    let p = projectsDatabase[activeProjectId];
+    let val = selectEl.value;
+    
+    // Simpan ke database project yang aktif
+    p.shadowSquad[posisi][tier] = val;
+    updateTeksPreviewKerangka(posisi, tier, val);
+}
+
+function updateTeksPreviewKerangka(posisi, tier, subId) {
+    let container = document.getElementById(`preview_${posisi}_${tier}`);
+    if(!container) return;
+    if(!subId) { container.innerText = "-"; return; }
+
+    let p = projectsDatabase[activeProjectId];
+    let pemain = p.masterPositions[posisi].find(item => item.subId == subId);
+    
+    if(pemain) {
+        container.innerHTML = `⚽ #${pemain.no} ${pemain.nama}`;
+    } else {
+        container.innerText = "-";
+    }
+}
+
+/* 5. TACTICAL MASTER MAP PADA PROJECT AKTIF */
 function viewMasterTacticalMap() {
     if(!activeProjectId) return;
     
@@ -708,7 +849,7 @@ function closeMap() {
     document.getElementById("mapModal").style.display = "none";
 }
 
-/* 5. ARSIP MATCH FOLDER */
+/* 6. ARSIP MATCH FOLDER */
 function saveMatchData(id){
     let tgl = document.getElementById("tanggal").value || "-";
     let lokasi = document.getElementById("lokasi").value || "Lapangan Umum";
@@ -770,6 +911,7 @@ function hapusMatch(e, id){
     p.totalPemain = hitungUlang;
     
     updateWorkspaceDashboard();
+    bukaPanelKerangkaTim();
 }
 
 function toggleFolder(id){
